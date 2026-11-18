@@ -6,11 +6,46 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.Media;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace TranslationEditor
 {
+    
+    
     public partial class MainFrame : Form
     {
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(
+            IntPtr hwnd,
+            int attr,
+            ref int attrValue,
+            int attrSize);
+
+        private void SetDarkTitleBar()
+        {
+            int useDarkMode = 1;
+            int attribute = 20; // Windows 10 2004 and newer
+
+            int result = DwmSetWindowAttribute(
+                Handle,
+                attribute,
+                ref useDarkMode,
+                sizeof(int));
+
+            // Older Windows 10 versions
+            if (result != 0)
+            {
+                attribute = 19;
+
+                DwmSetWindowAttribute(
+                    Handle,
+                    attribute,
+                    ref useDarkMode,
+                    sizeof(int));
+            }
+        }
+        
+        
         //
         // DATA
         //
@@ -30,8 +65,22 @@ namespace TranslationEditor
         public MainFrame()
         {
             InitializeComponent();
-            Icon = Properties.Resources.icon_main;
+            
+        
+            _ImportCsvMenuBtn = new ToolStripMenuItem(
+                "Import CSV translations...");
 
+            _ImportCsvMenuBtn.Click += new EventHandler(OnImportCsv);
+            fileToolStripMenuItem.DropDownItems.Insert(
+                fileToolStripMenuItem.DropDownItems.IndexOf(exportMenuBtn),
+                _ImportCsvMenuBtn);
+            
+            SetDarkTitleBar();
+            ApplyDarkMenuTheme();
+            ApplyDarkTheme();
+
+            
+            Icon = Properties.Resources.icon_main;
             findDlg = new FindDialog();
 
             Application.Idle += new EventHandler(OnIdle);
@@ -46,6 +95,103 @@ namespace TranslationEditor
             }
         }
 
+        
+        //
+        // CSV PARSERS
+        //
+        
+        private ToolStripMenuItem _ImportCsvMenuBtn = null;
+        private void OnImportCsv(object sender, EventArgs e)
+        {
+            if (document == null)
+                return;
+
+            if (cultureCombo.SelectedItem == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Please select a translation culture first.",
+                    "Import CSV",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+
+                return;
+            }
+
+            string culture = cultureCombo.SelectedItem.ToString();
+
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Import CSV translations";
+                dialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+
+                if (exportDir != "")
+                    dialog.InitialDirectory = exportDir;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                exportDir = Path.GetDirectoryName(dialog.FileName);
+
+                try
+                {
+                    status.Text = "Reading CSV...";
+
+                    CsvImportPreview preview =
+                        CsvTranslationImporter.Preview(
+                            dialog.FileName,
+                            document,
+                            culture);
+
+                    using (CsvImportDialog previewDialog =
+                        new CsvImportDialog(preview, culture))
+                    {
+                        if (previewDialog.ShowDialog(this) != DialogResult.OK)
+                            return;
+                    }
+
+                    // Apply all safe matches.
+                    int imported = 0;
+
+                    foreach (CsvImportEntry entry in preview.Entries)
+                    {
+                        if (!entry.CanImport)
+                            continue;
+
+                        entry.Record[culture] = entry.Translation;
+                        imported++;
+                    }
+
+                    // Refresh the visible translations.
+                    UpdateLocaleListTranslation();
+                    UpdateVisibility();
+                    OnSelectedIndexChanged(this, null);
+
+                    status.Text = "Imported " + imported + " translations.";
+
+                    MessageBox.Show(
+                        this,
+                        "Successfully imported " + imported +
+                        " translations into " + culture + ".",
+                        "CSV Import Complete",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        this,
+                        ex.Message,
+                        "CSV Import Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+
+                    status.Text = "CSV import failed.";
+                }
+            }
+        }
+
+        
         //
         // File actions (Open, Save, Import and Export)
         //
@@ -342,6 +488,7 @@ namespace TranslationEditor
             exportToolBtn.Enabled = (document != null);
             findMenuBtn.Checked = findDlg.Visible;
             findToolBtn.Checked = findDlg.Visible;
+            _ImportCsvMenuBtn.Enabled = (document != null);
         }
 
         //
@@ -558,5 +705,148 @@ namespace TranslationEditor
             hideTranslatedToolBtn.Checked = hideTranslatedMenuBtn.Checked;
             UpdateVisibility();
         }
+        
+                
+        private class DarkColorTable : ProfessionalColorTable
+        {
+            public DarkColorTable()
+            {
+                UseSystemColors = false;
+            }
+
+            // Dropdown background
+            public override Color ToolStripDropDownBackground
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+
+            // Menu bar
+            public override Color MenuStripGradientBegin
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+
+            public override Color MenuStripGradientEnd
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+
+            // Hovered menu item
+            public override Color MenuItemSelected
+            {
+                get { return Color.FromArgb(55, 55, 58); }
+            }
+
+            public override Color MenuItemSelectedGradientBegin
+            {
+                get { return Color.FromArgb(55, 55, 58); }
+            }
+
+            public override Color MenuItemSelectedGradientEnd
+            {
+                get { return Color.FromArgb(55, 55, 58); }
+            }
+
+            // Pressed menu item
+            public override Color MenuItemPressedGradientBegin
+            {
+                get { return Color.FromArgb(60, 60, 65); }
+            }
+
+            public override Color MenuItemPressedGradientMiddle
+            {
+                get { return Color.FromArgb(60, 60, 65); }
+            }
+
+            public override Color MenuItemPressedGradientEnd
+            {
+                get { return Color.FromArgb(60, 60, 65); }
+            }
+
+            // Borders and separators
+            public override Color MenuBorder
+            {
+                get { return Color.FromArgb(60, 60, 60); }
+            }
+
+            public override Color MenuItemBorder
+            {
+                get { return Color.FromArgb(70, 70, 70); }
+            }
+
+            public override Color SeparatorDark
+            {
+                get { return Color.FromArgb(65, 65, 65); }
+            }
+
+            public override Color SeparatorLight
+            {
+                get { return Color.FromArgb(65, 65, 65); }
+            }
+
+            // Icon margin
+            public override Color ImageMarginGradientBegin
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+
+            public override Color ImageMarginGradientMiddle
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+
+            public override Color ImageMarginGradientEnd
+            {
+                get { return Color.FromArgb(37, 37, 38); }
+            }
+        }
+        
+        
+        private void ApplyDarkMenuTheme()
+        {
+            var renderer = new ToolStripProfessionalRenderer(
+                new DarkColorTable());
+
+            Color foreground = Color.FromArgb(220, 220, 220);
+
+            menu.Renderer = renderer;
+            menu.ForeColor = foreground;
+
+            // Apply renderer and text colour to all menu items
+            foreach (ToolStripItem item in menu.Items)
+            {
+                item.ForeColor = foreground;
+
+                ToolStripMenuItem menuItem = item as ToolStripMenuItem;
+
+                if (menuItem != null)
+                {
+                    ApplyDarkMenuItems(menuItem, renderer, foreground);
+                }
+            }
+        }
+
+        private void ApplyDarkMenuItems(
+            ToolStripMenuItem parent,
+            ToolStripRenderer renderer,
+            Color foreground)
+        {
+            parent.DropDown.Renderer = renderer;
+            parent.DropDown.BackColor = Color.FromArgb(37, 37, 38);
+            parent.DropDown.ForeColor = foreground;
+
+            foreach (ToolStripItem item in parent.DropDownItems)
+            {
+                item.ForeColor = foreground;
+
+                ToolStripMenuItem child = item as ToolStripMenuItem;
+
+                if (child != null)
+                {
+                    ApplyDarkMenuItems(child, renderer, foreground);
+                }
+            }
+        }
+
     }
 }

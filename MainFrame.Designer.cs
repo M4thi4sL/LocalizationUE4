@@ -1,4 +1,7 @@
-﻿namespace TranslationEditor
+﻿using System.Drawing;
+using System.Windows.Forms;
+
+namespace TranslationEditor
 {
     partial class MainFrame
     {
@@ -20,6 +23,86 @@
             base.Dispose(disposing);
         }
 
+                
+        private void ApplyDarkTheme()
+        {
+            Color background = Color.FromArgb(30, 30, 30);
+            Color surface = Color.FromArgb(37, 37, 38);
+            Color foreground = Color.FromArgb(220, 220, 220);
+            Color border = Color.FromArgb(60, 60, 60);
+            Color accent = Color.FromArgb(55, 100, 150);
+
+            BackColor = background;
+            ForeColor = foreground;
+
+            ApplyThemeToControls(this, background, surface, foreground, border);
+
+            // DataGridView
+            dataGrid.BackgroundColor = background;
+            dataGrid.GridColor = border;
+            dataGrid.BorderStyle = BorderStyle.None;
+
+            dataGrid.DefaultCellStyle.BackColor = surface;
+            dataGrid.DefaultCellStyle.ForeColor = foreground;
+            dataGrid.DefaultCellStyle.SelectionBackColor = accent;
+            dataGrid.DefaultCellStyle.SelectionForeColor = Color.White;
+
+            dataGrid.AlternatingRowsDefaultCellStyle.BackColor = background;
+            dataGrid.AlternatingRowsDefaultCellStyle.ForeColor = foreground;
+
+            dataGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 45, 48);
+            dataGrid.ColumnHeadersDefaultCellStyle.ForeColor = foreground;
+            dataGrid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(45, 45, 48);
+
+            dataGrid.EnableHeadersVisualStyles = false;
+
+            // Toolbars
+            menu.BackColor = surface;
+            menu.ForeColor = foreground;
+
+            toolbar.BackColor = surface;
+            toolbar.ForeColor = foreground;
+
+            statusbar.BackColor = surface;
+            statusbar.ForeColor = foreground;
+        }
+
+        private void ApplyThemeToControls(
+            Control parent,
+            Color background,
+            Color surface,
+            Color foreground,
+            Color border)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                control.BackColor = background;
+                control.ForeColor = foreground;
+
+                if (control is TextBoxBase)
+                {
+                    control.BackColor = surface;
+                }
+                else if (control is DataGridView)
+                {
+                    // Configured separately.
+                }
+                else if (control is Panel)
+                {
+                    control.BackColor = background;
+                }
+                else if (control is TableLayoutPanel)
+                {
+                    control.BackColor = background;
+                }
+
+                ApplyThemeToControls(control, background, surface, foreground, border);
+            }
+        }
+
+        
+        
+        
         #region Windows Form Designer generated code
 
         /// <summary>
@@ -662,7 +745,7 @@
             this.MainMenuStrip = this.menu;
             this.MinimumSize = new System.Drawing.Size(320, 240);
             this.Name = "MainFrame";
-            this.Text = "Translation Editor for UE4";
+            this.Text = "Unreal Translation Editor";
             this.menu.ResumeLayout(false);
             this.menu.PerformLayout();
             this.statusbar.ResumeLayout(false);
